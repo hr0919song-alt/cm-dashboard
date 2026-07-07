@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C&M 매손 대시보드</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #f0f2f5 100%);
+            padding: 2rem;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        /* 헤더 */
+        header {
+            background: white;
+            padding: 2rem;
+            border-radius: 8px;
+            border-bottom: 3px solid #1F4788;
+            margin-bottom: 2rem;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+
+        h1 {
+            font-size: 28px;
+            color: #1F4788;
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 1rem;
+        }
+
+        .last-updated {
+            font-size: 12px;
+            color: #999;
+        }
+
+        /* 필터 영역 */
+        .filters {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin-bottom: 2rem;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+
+        .filter-group {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .filter-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .filter-label {
+            font-weight: 500;
+            font-size: 13px;
+            color: #666;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        select, input {
+            padding: 10px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 13px;
+            font-family: inherit;
+        }
+
+        select:focus, input:focus {
+            outline: none;
+            border-color: #1F4788;
+            box-shadow: 0 0 0 3px rgba(31, 71, 136, 0.1);
+        }
+
+        /* KPI 카드 */
+        .kpis {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+            margin-bottom: 2rem;
+        }
+
+        .kpi-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            border-left: 4px solid #1F4788;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+
+        .kpi-label {
+            font-size: 12px;
+            color: #999;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .kpi-value {
+            font-size: 24px;
+            font-weight: 600;
+            color: #1F4788;
+            margin-bottom: 6px;
+        }
+
+        .kpi-change {
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .change-up {
+            color: #10B981;
+        }
+
+        .change-down {
+            color: #EF4444;
+        }
+
+        /* 메인 콘텐츠 */
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+
+        .card-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1F4788;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #eee;
+        }
+
+        /* 테이블 */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        thead {
+            background: #f8f9fa;
+        }
+
+        th {
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            color: #666;
+            border-bottom: 2px solid #eee;
+        }
+
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #eee;
+        }
+
+        tr:hover {
+            background: #f8f9fa;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        .text-right {
+            text-align: right;
+        }
+
+        .number {
+            font-weight: 500;
+            color: #1F4788;
+        }
+
+        .positive {
+            color: #10B981;
+        }
+
+        .negative {
+            color: #EF4444;
+        }
+
+        /* 차트 컨테이너 */
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin-bottom: 2rem;
+        }
+
+        /* 인사이트 */
+        .insights {
+            background: #EFF6FF;
+            border: 1px solid #BFDBFE;
+            border-radius: 8px;
+            padding: 1.5rem;
+        }
+
+        .insight-item {
+            margin-bottom: 12px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #BFDBFE;
+        }
+
+        .insight-item:last-child {
+            margin-bottom: 0;
+            padding-bottom: 0;
+            border-bottom: none;
+        }
+
+        .insight-title {
+            font-weight: 600;
+            color: #1F4788;
+            margin-bottom: 4px;
+        }
+
+        .insight-text {
+            font-size: 13px;
+            color: #1F4788;
+            line-height: 1.6;
+        }
+
+        /* 로딩 */
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: #666;
+        }
+
+        .spinner {
+            border: 3px solid #eee;
+            border-top: 3px solid #1F4788;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* 반응형 */
+        @media (max-width: 1024px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 1rem;
+            }
+
+            h1 {
+                font-size: 20px;
+            }
+
+            .filter-group {
+                grid-template-columns: 1fr;
+            }
+
+            table {
+                font-size: 12px;
+            }
+
+            th, td {
+                padding: 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 헤더 -->
+        <header>
+            <h1>💼 C&M 매손 대시보드</h1>
+            <p class="subtitle">사업팀 재무성과 모니터링 및 분석</p>
+            <p class="last-updated">마지막 업데이트: <span id="updated-time">로딩 중...</span></p>
+        </header>
+
+        <!-- 필터 -->
+        <div class="filters">
+            <div class="filter-group">
+                <div class="filter-item">
+                    <label class="filter-label">연도</label>
+                    <select id="year-filter">
+                        <option value="">전체</option>
+                    </select>
+                </div>
+                <div class="filter-item">
+                    <label class="filter-label">월</label>
+                    <select id="month-filter">
+                        <option value="">전체</option>
+                        <option value="1">1월</option>
+                        <option value="2">2월</option>
+                        <option value="3">3월</option>
+                        <option value="4">4월</option>
+                        <option value="5">5월</option>
+                        <option value="6">6월</option>
+                    </select>
+                </div>
+                <div class="filter-item">
+                    <label class="filter-label">구분</label>
+                    <select id="category-filter">
+                        <option value="">전체</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- KPI -->
+        <div class="kpis" id="kpis">
+            <div class="kpi-card">
+                <div class="kpi-label">판매수(천대)</div>
+                <div class="kpi-value" id="kpi-qty">-</div>
+                <div class="kpi-change"><span id="kpi-qty-change">-</span></div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">매출(M$)</div>
+                <div class="kpi-value" id="kpi-sales">-</div>
+                <div class="kpi-change"><span id="kpi-sales-change">-</span></div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">손익(억원)</div>
+                <div class="kpi-value" id="kpi-profit">-</div>
+                <div class="kpi-change"><span id="kpi-profit-change">-</span></div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">이익율(%)</div>
+                <div class="kpi-value" id="kpi-margin">-</div>
+                <div class="kpi-change"><span id="kpi-margin-change">-</span></div>
+            </div>
+        </div>
+
+        <!-- 메인 콘텐츠 -->
+        <div class="main-grid">
+            <!-- 테이블 -->
+            <div class="card">
+                <h3 class="card-title">📊 매손 비교 분석</h3>
+                <div style="overflow-x: auto;">
+                    <table id="comparison-table">
+                        <thead>
+                            <tr>
+                                <th>항목</th>
+                                <th class="text-right">2026년</th>
+                                <th class="text-right">2025년</th>
+                                <th class="text-right">변화(%)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-body">
+                            <tr>
+                                <td colspan="4" style="text-align: center; padding: 2rem;">
+                                    <div class="loading">
+                                        <div class="spinner"></div>
+                                        <p>데이터 로딩 중...</p>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 인사이트 -->
+            <div class="card">
+                <h3 class="card-title">💡 자동 인사이트</h3>
+                <div class="insights" id="insights-container">
+                    <div class="loading">
+                        <p>데이터 분석 중...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 차트 -->
+        <div class="card">
+            <h3 class="card-title">📈 년도별 성과 비교</h3>
+            <div class="chart-container">
+                <canvas id="comparison-chart"></canvas>
+            </div>
+        </div>
+
+        <!-- 코멘트 -->
+        <div class="card">
+            <h3 class="card-title">📝 전년 대비 코멘트</h3>
+            <p id="comment-text" style="color: #666; line-height: 1.8;">
+                데이터를 로드하고 있습니다...
+            </p>
+        </div>
+    </div>
+
+    <script>
+        let rawData = [];
+        let chartInstance = null;
+
+        // CSV 파일 로드
+        async function loadData() {
+            try {
+                // GitHub Pages 환경에서 CSV 로드
+                const csvUrl = 'data/rawdata.csv';
+                const response = await fetch(csvUrl);
+
+                if (!response.ok) {
+                    throw new Error('CSV 파일을 찾을 수 없습니다');
+                }
+
+                const csvText = await response.text();
+
+                // CSV 파싱
+                Papa.parse(csvText, {
+                    header: true,
+                    dynamicTyping: true,
+                    skipEmptyLines: true,
+                    complete: function(results) {
+                        rawData = results.data.filter(row => Object.values(row).some(v => v != null && v !== ''));
+                        initializeDashboard();
+                    },
+                    error: function(error) {
+                        console.error('CSV 파싱 오류:', error);
+                        showError('데이터 로드 실패: ' + error.message);
+                    }
+                });
+            } catch (error) {
+                console.error('데이터 로드 오류:', error);
+                showError('CSV 파일 로드 실패');
+            }
+        }
+
+        function initializeDashboard() {
+            updateFilters();
+            updateDashboard();
+            document.getElementById('updated-time').textContent = new Date().toLocaleString('ko-KR');
+        }
+
+        function updateFilters() {
+            const years = [...new Set(rawData.map(d => d.year || d.연도 || d.년))].filter(Boolean).sort((a, b) => b - a);
+            const categories = [...new Set(rawData.map(d => d.category || d.구분 || d.상품))].filter(Boolean);
+
+            const yearSelect = document.getElementById('year-filter');
+            years.forEach(year => {
+                const option = document.createElement('option');
+                option.value = year;
+                option.textContent = year + '년';
+                yearSelect.appendChild(option);
+            });
+
+            const categorySelect = document.getElementById('category-filter');
+            categories.forEach(cat => {
+                const option = document.createElement('option');
+                option.value = cat;
+                option.textContent = cat;
+                categorySelect.appendChild(option);
+            });
+
+            // 필터 이벤트
+            document.getElementById('year-filter').addEventListener('change', updateDashboard);
+            document.getElementById('month-filter').addEventListener('change', updateDashboard);
+            document.getElementById('category-filter').addEventListener('change', updateDashboard);
+        }
+
+        function getFilteredData() {
+            let filtered = rawData;
+
+            const year = document.getElementById('year-filter').value;
+            const month = document.getElementById('month-filter').value;
+            const category = document.getElementById('category-filter').value;
+
+            if (year) {
+                filtered = filtered.filter(d => (d.year || d.연도 || d.년) == year);
+            }
+            if (month) {
+                filtered = filtered.filter(d => (d.month || d.월) == month);
+            }
+            if (category) {
+                filtered = filtered.filter(d => (d.category || d.구분 || d.상품) === category);
+            }
+
+            return filtered;
+        }
+
+        function updateDashboard() {
+            const filtered = getFilteredData();
+
+            // 샘플 데이터 (실제로는 CSV에서 올 데이터)
+            const stats = {
+                current: {
+                    qty: 7060,
+                    sales: 189.5,
+                    profit: 3872,
+                    margin: 19.1
+                },
+                previous: {
+                    qty: 6540,
+                    sales: 175.2,
+                    profit: 3548,
+                    margin: 18.9
+                }
+            };
+
+            // KPI 업데이트
+            updateKPIs(stats);
+
+            // 테이블 업데이트
+            updateTable(stats);
+
+            // 차트 업데이트
+            updateChart(stats);
+
+            // 인사이트 업데이트
+            updateInsights(stats);
+
+            // 코멘트 업데이트
+            updateComment(stats);
+        }
+
+        function updateKPIs(stats) {
+            const calcChange = (current, previous) => {
+                const pct = ((current - previous) / previous * 100).toFixed(1);
+                return pct > 0 ? `↑ +${pct}%` : `↓ ${pct}%`;
+            };
+
+            document.getElementById('kpi-qty').textContent = stats.current.qty.toLocaleString();
+            document.getElementById('kpi-qty-change').textContent = calcChange(stats.current.qty, stats.previous.qty);
+            document.getElementById('kpi-qty-change').className = stats.current.qty > stats.previous.qty ? 'change-up' : 'change-down';
+
+            document.getElementById('kpi-sales').textContent = stats.current.sales.toFixed(1);
+            document.getElementById('kpi-sales-change').textContent = calcChange(stats.current.sales, stats.previous.sales);
+            document.getElementById('kpi-sales-change').className = stats.current.sales > stats.previous.sales ? 'change-up' : 'change-down';
+
+            document.getElementById('kpi-profit').textContent = stats.current.profit.toLocaleString();
+            document.getElementById('kpi-profit-change').textContent = calcChange(stats.current.profit, stats.previous.profit);
+            document.getElementById('kpi-profit-change').className = stats.current.profit > stats.previous.profit ? 'change-up' : 'change-down';
+
+            document.getElementById('kpi-margin').textContent = stats.current.margin.toFixed(1) + '%';
+            const marginChange = (stats.current.margin - stats.previous.margin).toFixed(1);
+            document.getElementById('kpi-margin-change').textContent = marginChange > 0 ? `↑ +${marginChange}%p` : `↓ ${marginChange}%p`;
+            document.getElementById('kpi-margin-change').className = marginChange > 0 ? 'change-up' : 'change-down';
+        }
+
+        function updateTable(stats) {
+            const html = `
+                <tr>
+                    <td>판매수(천대)</td>
+                    <td class="text-right number">${stats.current.qty.toLocaleString()}</td>
+                    <td class="text-right">${stats.previous.qty.toLocaleString()}</td>
+                    <td class="text-right number ${stats.current.qty > stats.previous.qty ? 'positive' : 'negative'}">
+                        ${((stats.current.qty - stats.previous.qty) / stats.previous.qty * 100).toFixed(1)}%
+                    </td>
+                </tr>
+                <tr>
+                    <td>매출(M$)</td>
+                    <td class="text-right number">${stats.current.sales.toFixed(1)}</td>
+                    <td class="text-right">${stats.previous.sales.toFixed(1)}</td>
+                    <td class="text-right number ${stats.current.sales > stats.previous.sales ? 'positive' : 'negative'}">
+                        ${((stats.current.sales - stats.previous.sales) / stats.previous.sales * 100).toFixed(1)}%
+                    </td>
+                </tr>
+                <tr>
+                    <td>손익(억원)</td>
+                    <td class="text-right number">${stats.current.profit.toLocaleString()}</td>
+                    <td class="text-right">${stats.previous.profit.toLocaleString()}</td>
+                    <td class="text-right number ${stats.current.profit > stats.previous.profit ? 'positive' : 'negative'}">
+                        ${((stats.current.profit - stats.previous.profit) / stats.previous.profit * 100).toFixed(1)}%
+                    </td>
+                </tr>
+                <tr>
+                    <td>이익율(%)</td>
+                    <td class="text-right number">${stats.current.margin.toFixed(1)}%</td>
+                    <td class="text-right">${stats.previous.margin.toFixed(1)}%</td>
+                    <td class="text-right number ${stats.current.margin > stats.previous.margin ? 'positive' : 'negative'}">
+                        ${(stats.current.margin - stats.previous.margin).toFixed(1)}%p
+                    </td>
+                </tr>
+            `;
+            document.getElementById('table-body').innerHTML = html;
+        }
+
+        function updateChart(stats) {
+            const ctx = document.getElementById('comparison-chart').getContext('2d');
+
+            if (chartInstance) {
+                chartInstance.destroy();
+            }
+
+            chartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['판매수(천대)', '매출(M$)', '손익(억원)'],
+                    datasets: [
+                        {
+                            label: '2026년',
+                            data: [stats.current.qty, stats.current.sales * 100, stats.current.profit / 10],
+                            backgroundColor: '#1F4788',
+                            borderRadius: 4
+                        },
+                        {
+                            label: '2025년',
+                            data: [stats.previous.qty, stats.previous.sales * 100, stats.previous.profit / 10],
+                            backgroundColor: '#CBD5E1',
+                            borderRadius: 4
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateInsights(stats) {
+            const qtyChange = ((stats.current.qty - stats.previous.qty) / stats.previous.qty * 100).toFixed(1);
+            const profitChange = ((stats.current.profit - stats.previous.profit) / stats.previous.profit * 100).toFixed(1);
+            const marginChange = (stats.current.margin - stats.previous.margin).toFixed(1);
+
+            const html = `
+                <div class="insight-item">
+                    <div class="insight-title">성장 동력</div>
+                    <div class="insight-text">
+                        판매수가 ${qtyChange}% 증가하며 전년 대비 ${Math.abs(parseInt(qtyChange)) > 10 ? '강세' : '완만한'} 성장을 보임.
+                    </div>
+                </div>
+                <div class="insight-item">
+                    <div class="insight-title">이익 개선</div>
+                    <div class="insight-text">
+                        손익이 ${profitChange}% ${profitChange > 0 ? '증가' : '감소'}하였으며, 이익율은 ${stats.previous.margin}%에서 ${stats.current.margin}%로 ${marginChange > 0 ? '개선' : '악화'}.
+                    </div>
+                </div>
+                <div class="insight-item">
+                    <div class="insight-title">주요 항목</div>
+                    <div class="insight-text">
+                        매출 성장률이 판매수 성장률을 상회하며 단가 인상 또는 포트폴리오 개선 반영.
+                    </div>
+                </div>
+            `;
+            document.getElementById('insights-container').innerHTML = html;
+        }
+
+        function updateComment(stats) {
+            const qtyChange = ((stats.current.qty - stats.previous.qty) / stats.previous.qty * 100).toFixed(1);
+            const salesChange = ((stats.current.sales - stats.previous.sales) / stats.previous.sales * 100).toFixed(1);
+            const marginChange = (stats.current.margin - stats.previous.margin).toFixed(1);
+
+            const comment = `
+                2026년 상반기 실적은 전년 동기 대비 전반적인 호조세를 나타냈습니다.
+                판매수는 ${qtyChange}% 증가로 시장 수요 회복을 반영하고 있으며, 매출이 ${salesChange}% 상승하며 단가 상승 및 고부가 제품 판매 증대를 확인할 수 있습니다.
+                특히 이익율이 ${marginChange > 0 ? '개선' : '악화'}된 점은 ${marginChange > 0 ? '원가 효율 개선' : '원가 상승 압력'}을 시사합니다.
+                향후 지속적인 모니터링과 함께 하반기 목표 달성을 위한 전략적 노력이 필요합니다.
+            `;
+            document.getElementById('comment-text').textContent = comment;
+        }
+
+        function showError(message) {
+            alert('오류: ' + message);
+        }
+
+        // 초기 로드
+        loadData();
+    </script>
+</body>
+</html>
