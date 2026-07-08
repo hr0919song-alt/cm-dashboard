@@ -1,0 +1,983 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C&M 대시보드</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f7fa;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        /* 헤더 */
+        header {
+            background: white;
+            padding: 2rem;
+            border-radius: 8px;
+            margin-bottom: 2rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            border-bottom: 3px solid #1F4788;
+        }
+
+        h1 {
+            font-size: 28px;
+            color: #1F4788;
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle {
+            font-size: 14px;
+            color: #666;
+        }
+
+        /* 탭 네비게이션 */
+        .nav-tabs {
+            display: flex;
+            gap: 0;
+            margin-bottom: 2rem;
+            border-bottom: 2px solid #ddd;
+            background: white;
+            border-radius: 8px 8px 0 0;
+            overflow: hidden;
+        }
+
+        .nav-tab {
+            flex: 1;
+            padding: 1rem;
+            text-align: center;
+            cursor: pointer;
+            background: #f5f5f5;
+            border: none;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+
+        .nav-tab.active {
+            background: white;
+            color: #1F4788;
+            border-bottom: 3px solid #1F4788;
+        }
+
+        .nav-tab:hover {
+            background: #efefef;
+        }
+
+        /* 필터 영역 */
+        .filters {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin-bottom: 2rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+
+        .filter-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .filter-label {
+            background: #FFE082;
+            padding: 8px 12px;
+            font-weight: 600;
+            font-size: 13px;
+            margin-bottom: 6px;
+            border-radius: 4px;
+            color: #333;
+        }
+
+        .checkbox-list {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 8px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            padding: 6px;
+            font-size: 13px;
+        }
+
+        .checkbox-item input {
+            margin-right: 8px;
+            cursor: pointer;
+        }
+
+        .checkbox-item label {
+            cursor: pointer;
+            flex: 1;
+        }
+
+        /* 페이지 콘텐츠 */
+        .page {
+            display: none;
+        }
+
+        .page.active {
+            display: block;
+        }
+
+        /* KPI 카드 */
+        .kpis {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+            margin-bottom: 2rem;
+        }
+
+        .kpi-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            border-left: 4px solid #1F4788;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+
+        .kpi-label {
+            font-size: 12px;
+            color: #999;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+        }
+
+        .kpi-value {
+            font-size: 24px;
+            font-weight: 600;
+            color: #1F4788;
+            margin-bottom: 6px;
+        }
+
+        .kpi-change {
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .change-up {
+            color: #10B981;
+        }
+
+        .change-down {
+            color: #EF4444;
+        }
+
+        /* 카드 */
+        .card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            margin-bottom: 2rem;
+        }
+
+        .card-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1F4788;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #eee;
+        }
+
+        /* 테이블 */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        thead {
+            background: #f8f9fa;
+        }
+
+        th {
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            color: #666;
+            border-bottom: 2px solid #eee;
+        }
+
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #eee;
+        }
+
+        tr:hover {
+            background: #f8f9fa;
+        }
+
+        .text-right {
+            text-align: right;
+        }
+
+        .number {
+            font-weight: 500;
+            color: #1F4788;
+        }
+
+        /* 차트 */
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin-bottom: 2rem;
+        }
+
+        /* 그리드 레이아웃 */
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+        }
+
+        .grid-3 {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 2rem;
+        }
+
+        /* 반응형 */
+        @media (max-width: 1024px) {
+            .grid-2 { grid-template-columns: 1fr; }
+            .grid-3 { grid-template-columns: 1fr 1fr; }
+        }
+
+        @media (max-width: 768px) {
+            .container { padding: 1rem; }
+            .filter-row { grid-template-columns: 1fr; }
+            .grid-3 { grid-template-columns: 1fr; }
+            .nav-tab { font-size: 12px; padding: 0.8rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 헤더 -->
+        <header>
+            <h1>📊 C&M 대시보드</h1>
+            <p class="subtitle">사업팀 재무성과 분석</p>
+        </header>
+
+        <!-- 탭 네비게이션 -->
+        <div class="nav-tabs">
+            <button class="nav-tab active" onclick="switchPage('page1')">
+                📈 매손 손익 대시보드
+            </button>
+            <button class="nav-tab" onclick="switchPage('page2')">
+                💰 총원가 분석
+            </button>
+            <button class="nav-tab" onclick="switchPage('page3')">
+                🌍 지역별 주요거래선
+            </button>
+        </div>
+
+        <!-- ========== PAGE 1: 매손 손익 대시보드 ========== -->
+        <div id="page1" class="page active">
+            <!-- 필터 -->
+            <div class="filters">
+                <div class="filter-row">
+                    <div class="filter-group">
+                        <label class="filter-label">연도</label>
+                        <div class="checkbox-list" id="filter-year"></div>
+                    </div>
+                    <div class="filter-group">
+                        <label class="filter-label">월</label>
+                        <div class="checkbox-list" id="filter-month"></div>
+                    </div>
+                    <div class="filter-group">
+                        <label class="filter-label">제품</label>
+                        <div class="checkbox-list" id="filter-product"></div>
+                    </div>
+                    <div class="filter-group">
+                        <label class="filter-label">판매경로</label>
+                        <div class="checkbox-list" id="filter-channel"></div>
+                    </div>
+                    <div class="filter-group">
+                        <label class="filter-label">생산지</label>
+                        <div class="checkbox-list" id="filter-factory"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- KPI -->
+            <div class="kpis">
+                <div class="kpi-card">
+                    <div class="kpi-label">판매수(천대)</div>
+                    <div class="kpi-value" id="page1-kpi-qty">7,060</div>
+                    <div class="kpi-change"><span class="change-up">↑ +8.0%</span></div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">매출(M$)</div>
+                    <div class="kpi-value" id="page1-kpi-sales">189.5</div>
+                    <div class="kpi-change"><span class="change-up">↑ +8.2%</span></div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">손익(억원)</div>
+                    <div class="kpi-value" id="page1-kpi-profit">3,872</div>
+                    <div class="kpi-change"><span class="change-up">↑ +9.1%</span></div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-label">이익율(%)</div>
+                    <div class="kpi-value" id="page1-kpi-margin">19.1%</div>
+                    <div class="kpi-change"><span class="change-up">↑ +0.2%p</span></div>
+                </div>
+            </div>
+
+            <!-- 매손 비교 분석 -->
+            <div class="grid-2">
+                <div class="card">
+                    <h3 class="card-title">📊 매손 비교분석</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>항목</th>
+                                <th class="text-right">당월</th>
+                                <th class="text-right">전월</th>
+                                <th class="text-right">변화(%)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="page1-table">
+                            <tr>
+                                <td>판매수(천대)</td>
+                                <td class="text-right number">7,060</td>
+                                <td class="text-right">6,540</td>
+                                <td class="text-right number change-up">+8.0%</td>
+                            </tr>
+                            <tr>
+                                <td>매출(M$)</td>
+                                <td class="text-right number">189.5</td>
+                                <td class="text-right">175.2</td>
+                                <td class="text-right number change-up">+8.2%</td>
+                            </tr>
+                            <tr>
+                                <td>손익(억원)</td>
+                                <td class="text-right number">3,872</td>
+                                <td class="text-right">3,548</td>
+                                <td class="text-right number change-up">+9.1%</td>
+                            </tr>
+                            <tr>
+                                <td>이익율(%)</td>
+                                <td class="text-right number">19.1%</td>
+                                <td class="text-right">18.9%</td>
+                                <td class="text-right number change-up">+0.2%p</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="card">
+                    <h3 class="card-title">💡 자동 인사이트</h3>
+                    <div style="background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 8px; padding: 1.5rem;">
+                        <div style="margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid #BFDBFE;">
+                            <strong style="color: #1F4788;">성장 동력</strong>
+                            <p style="font-size: 13px; color: #1F4788; margin-top: 6px; line-height: 1.6;">
+                                판매수가 8.0% 증가하며 전월 대비 강한 성장을 보임.
+                            </p>
+                        </div>
+                        <div style="margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid #BFDBFE;">
+                            <strong style="color: #1F4788;">이익 개선</strong>
+                            <p style="font-size: 13px; color: #1F4788; margin-top: 6px; line-height: 1.6;">
+                                손익이 9.1% 증가하였으며, 이익율은 18.9%에서 19.1%로 개선.
+                            </p>
+                        </div>
+                        <div>
+                            <strong style="color: #1F4788;">주요 항목</strong>
+                            <p style="font-size: 13px; color: #1F4788; margin-top: 6px; line-height: 1.6;">
+                                매출 성장률이 판매수 성장률을 상회하며 단가 인상 반영.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 차트 -->
+            <div class="card">
+                <h3 class="card-title">📈 추이 분석</h3>
+                <div class="grid-3">
+                    <div class="chart-container">
+                        <canvas id="chart-sales"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="chart-profit"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="chart-margin"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========== PAGE 2: 총원가 분석 ========== -->
+        <div id="page2" class="page">
+            <!-- 필터 -->
+            <div class="filters">
+                <div class="filter-row">
+                    <div class="filter-group">
+                        <label class="filter-label">연도</label>
+                        <div class="checkbox-list" id="filter-year-p2"></div>
+                    </div>
+                    <div class="filter-group">
+                        <label class="filter-label">월</label>
+                        <div class="checkbox-list" id="filter-month-p2"></div>
+                    </div>
+                    <div class="filter-group">
+                        <label class="filter-label">제품</label>
+                        <div class="checkbox-list" id="filter-product-p2"></div>
+                    </div>
+                    <div class="filter-group">
+                        <label class="filter-label">판매경로</label>
+                        <div class="checkbox-list" id="filter-channel-p2"></div>
+                    </div>
+                    <div class="filter-group">
+                        <label class="filter-label">생산지</label>
+                        <div class="checkbox-list" id="filter-factory-p2"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 원가 구성 -->
+            <div class="card">
+                <h3 class="card-title">💰 원가 구성 분석</h3>
+                <div class="grid-2">
+                    <div>
+                        <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 1rem; color: #1F4788;">원가 항목별 비중</h4>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>항목</th>
+                                    <th class="text-right">금액(억원)</th>
+                                    <th class="text-right">비중(%)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>재료비</td>
+                                    <td class="text-right number">1,500</td>
+                                    <td class="text-right">45.2%</td>
+                                </tr>
+                                <tr>
+                                    <td>노동비</td>
+                                    <td class="text-right number">800</td>
+                                    <td class="text-right">24.1%</td>
+                                </tr>
+                                <tr>
+                                    <td>제조경비</td>
+                                    <td class="text-right number">650</td>
+                                    <td class="text-right">19.6%</td>
+                                </tr>
+                                <tr>
+                                    <td>기타</td>
+                                    <td class="text-right number">350</td>
+                                    <td class="text-right">10.6%</td>
+                                </tr>
+                                <tr style="background: #f0f0f0; font-weight: 600;">
+                                    <td>합계</td>
+                                    <td class="text-right number">3,300</td>
+                                    <td class="text-right">100.0%</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="chart-cost"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 상세 원가 분석 -->
+            <div class="card">
+                <h3 class="card-title">📊 제품별 원가 분석</h3>
+                <div style="overflow-x: auto;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>제품</th>
+                                <th class="text-right">재료비</th>
+                                <th class="text-right">노동비</th>
+                                <th class="text-right">제조경비</th>
+                                <th class="text-right">합계</th>
+                                <th class="text-right">단가</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>압축기</td>
+                                <td class="text-right number">800</td>
+                                <td class="text-right number">350</td>
+                                <td class="text-right number">280</td>
+                                <td class="text-right number">1,430</td>
+                                <td class="text-right">425</td>
+                            </tr>
+                            <tr>
+                                <td>모터</td>
+                                <td class="text-right number">700</td>
+                                <td class="text-right number">450</td>
+                                <td class="text-right number">370</td>
+                                <td class="text-right number">1,520</td>
+                                <td class="text-right">510</td>
+                            </tr>
+                            <tr>
+                                <td>기타</td>
+                                <td class="text-right number">380</td>
+                                <td class="text-right number">150</td>
+                                <td class="text-right number">180</td>
+                                <td class="text-right number">710</td>
+                                <td class="text-right">305</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========== PAGE 3: 지역별 주요거래선 ========== -->
+        <div id="page3" class="page">
+            <!-- 필터 -->
+            <div class="filters">
+                <div class="filter-row">
+                    <div class="filter-group">
+                        <label class="filter-label">연도</label>
+                        <div class="checkbox-list" id="filter-year-p3"></div>
+                    </div>
+                    <div class="filter-group">
+                        <label class="filter-label">월</label>
+                        <div class="checkbox-list" id="filter-month-p3"></div>
+                    </div>
+                    <div class="filter-group">
+                        <label class="filter-label">제품</label>
+                        <div class="checkbox-list" id="filter-product-p3"></div>
+                    </div>
+                    <div class="filter-group">
+                        <label class="filter-label">판매경로</label>
+                        <div class="checkbox-list" id="filter-channel-p3"></div>
+                    </div>
+                    <div class="filter-group">
+                        <label class="filter-label">생산지</label>
+                        <div class="checkbox-list" id="filter-factory-p3"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 지역별 성과 -->
+            <div class="card">
+                <h3 class="card-title">🌍 지역별 성과 현황</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>지역</th>
+                            <th class="text-right">판매수(천대)</th>
+                            <th class="text-right">매출(M$)</th>
+                            <th class="text-right">손익(억원)</th>
+                            <th class="text-right">이익율(%)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>아시아</td>
+                            <td class="text-right number">3,200</td>
+                            <td class="text-right number">85.5</td>
+                            <td class="text-right number">1,750</td>
+                            <td class="text-right">19.5%</td>
+                        </tr>
+                        <tr>
+                            <td>유럽</td>
+                            <td class="text-right number">2,150</td>
+                            <td class="text-right number">62.3</td>
+                            <td class="text-right number">1,280</td>
+                            <td class="text-right">18.8%</td>
+                        </tr>
+                        <tr>
+                            <td>미국</td>
+                            <td class="text-right number">1,350</td>
+                            <td class="text-right number">38.2</td>
+                            <td class="text-right number">720</td>
+                            <td class="text-right">18.1%</td>
+                        </tr>
+                        <tr>
+                            <td>기타</td>
+                            <td class="text-right number">360</td>
+                            <td class="text-right number">3.5</td>
+                            <td class="text-right number">122</td>
+                            <td class="text-right">21.3%</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- 주요 거래선 -->
+            <div class="grid-2">
+                <div class="card">
+                    <h3 class="card-title">🏢 주요 거래선 (아시아)</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>거래선</th>
+                                <th class="text-right">매출(M$)</th>
+                                <th class="text-right">손익(억원)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Samsung</td>
+                                <td class="text-right number">32.5</td>
+                                <td class="text-right">680</td>
+                            </tr>
+                            <tr>
+                                <td>LG Electronics</td>
+                                <td class="text-right number">28.3</td>
+                                <td class="text-right">590</td>
+                            </tr>
+                            <tr>
+                                <td>Midea</td>
+                                <td class="text-right number">15.8</td>
+                                <td class="text-right">320</td>
+                            </tr>
+                            <tr>
+                                <td>기타</td>
+                                <td class="text-right number">8.9</td>
+                                <td class="text-right">160</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="card">
+                    <h3 class="card-title">🏢 주요 거래선 (유럽)</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>거래선</th>
+                                <th class="text-right">매출(M$)</th>
+                                <th class="text-right">손익(억원)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Carrier</td>
+                                <td class="text-right number">18.2</td>
+                                <td class="text-right">380</td>
+                            </tr>
+                            <tr>
+                                <td>Daikin</td>
+                                <td class="text-right number">16.5</td>
+                                <td class="text-right">345</td>
+                            </tr>
+                            <tr>
+                                <td>Danfoss</td>
+                                <td class="text-right number">14.3</td>
+                                <td class="text-right">298</td>
+                            </tr>
+                            <tr>
+                                <td>기타</td>
+                                <td class="text-right number">13.3</td>
+                                <td class="text-right">257</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 지역별 추이 -->
+            <div class="card">
+                <h3 class="card-title">📈 지역별 매출 추이</h3>
+                <div class="chart-container">
+                    <canvas id="chart-region"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let rawData = [];
+        let charts = {};
+
+        // 필터 옵션들
+        const filterOptions = {
+            years: ['2025', '2026'],
+            months: ['1월', '2월', '3월', '4월', '5월', '6월'],
+            products: ['압축기', '모터', '기타'],
+            channels: ['법인향', '공정대체', '순수외판'],
+            factories: ['한국', '중국', '베트남']
+        };
+
+        // 초기화
+        function initializeFilters(pageNum) {
+            const suffix = pageNum > 1 ? `-p${pageNum}` : '';
+
+            // 연도
+            const yearContainer = document.getElementById(`filter-year${suffix}`);
+            yearContainer.innerHTML = filterOptions.years.map(y => `
+                <div class="checkbox-item">
+                    <input type="checkbox" id="year-${y}${suffix}" value="${y}" checked>
+                    <label for="year-${y}${suffix}">${y}년</label>
+                </div>
+            `).join('');
+
+            // 월
+            const monthContainer = document.getElementById(`filter-month${suffix}`);
+            monthContainer.innerHTML = filterOptions.months.map(m => `
+                <div class="checkbox-item">
+                    <input type="checkbox" id="month-${m}${suffix}" value="${m}" checked>
+                    <label for="month-${m}${suffix}">${m}</label>
+                </div>
+            `).join('');
+
+            // 제품
+            const productContainer = document.getElementById(`filter-product${suffix}`);
+            productContainer.innerHTML = filterOptions.products.map(p => `
+                <div class="checkbox-item">
+                    <input type="checkbox" id="product-${p}${suffix}" value="${p}" checked>
+                    <label for="product-${p}${suffix}">${p}</label>
+                </div>
+            `).join('');
+
+            // 판매경로
+            const channelContainer = document.getElementById(`filter-channel${suffix}`);
+            channelContainer.innerHTML = filterOptions.channels.map(c => `
+                <div class="checkbox-item">
+                    <input type="checkbox" id="channel-${c}${suffix}" value="${c}" checked>
+                    <label for="channel-${c}${suffix}">${c}</label>
+                </div>
+            `).join('');
+
+            // 생산지
+            const factoryContainer = document.getElementById(`filter-factory${suffix}`);
+            factoryContainer.innerHTML = filterOptions.factories.map(f => `
+                <div class="checkbox-item">
+                    <input type="checkbox" id="factory-${f}${suffix}" value="${f}" checked>
+                    <label for="factory-${f}${suffix}">${f}</label>
+                </div>
+            `).join('');
+
+            // 이벤트 리스너
+            const inputs = document.querySelectorAll(`input[id*="${suffix}"]`);
+            inputs.forEach(input => {
+                input.addEventListener('change', () => updateDashboard(pageNum));
+            });
+        }
+
+        // 페이지 전환
+        function switchPage(pageId) {
+            // 페이지 숨기기
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.getElementById(pageId).classList.add('active');
+
+            // 탭 활성화
+            document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+
+            const pageNum = pageId.replace('page', '');
+            updateDashboard(pageNum);
+
+            // 차트 리사이징
+            setTimeout(() => {
+                Object.values(charts).forEach(chart => {
+                    if (chart) chart.resize();
+                });
+            }, 100);
+        }
+
+        // 대시보드 업데이트
+        function updateDashboard(pageNum = 1) {
+            if (pageNum === 1) {
+                updatePage1();
+            } else if (pageNum === 2) {
+                updatePage2();
+            } else if (pageNum === 3) {
+                updatePage3();
+            }
+        }
+
+        // PAGE 1 업데이트
+        function updatePage1() {
+            // 차트 업데이트
+            updateSalesChart();
+            updateProfitChart();
+            updateMarginChart();
+        }
+
+        // PAGE 2 업데이트
+        function updatePage2() {
+            updateCostChart();
+        }
+
+        // PAGE 3 업데이트
+        function updatePage3() {
+            updateRegionChart();
+        }
+
+        // 차트 함수들
+        function updateSalesChart() {
+            const ctx = document.getElementById('chart-sales');
+            if (!ctx) return;
+
+            if (charts['sales']) charts['sales'].destroy();
+
+            charts['sales'] = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['1월', '2월', '3월', '4월', '5월', '6월'],
+                    datasets: [{
+                        label: '매출(M$)',
+                        data: [145, 162, 155, 178, 189, 192],
+                        borderColor: '#1F4788',
+                        backgroundColor: 'rgba(31, 71, 136, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: true } }
+                }
+            });
+        }
+
+        function updateProfitChart() {
+            const ctx = document.getElementById('chart-profit');
+            if (!ctx) return;
+
+            if (charts['profit']) charts['profit'].destroy();
+
+            charts['profit'] = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['1월', '2월', '3월', '4월', '5월', '6월'],
+                    datasets: [{
+                        label: '손익(억원)',
+                        data: [3100, 3300, 3150, 3500, 3872, 3950],
+                        backgroundColor: '#1F4788',
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: true } }
+                }
+            });
+        }
+
+        function updateMarginChart() {
+            const ctx = document.getElementById('chart-margin');
+            if (!ctx) return;
+
+            if (charts['margin']) charts['margin'].destroy();
+
+            charts['margin'] = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['1월', '2월', '3월', '4월', '5월', '6월'],
+                    datasets: [{
+                        label: '이익율(%)',
+                        data: [18.2, 18.5, 18.1, 18.8, 19.1, 19.3],
+                        borderColor: '#10B981',
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: true } }
+                }
+            });
+        }
+
+        function updateCostChart() {
+            const ctx = document.getElementById('chart-cost');
+            if (!ctx) return;
+
+            if (charts['cost']) charts['cost'].destroy();
+
+            charts['cost'] = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['재료비', '노동비', '제조경비', '기타'],
+                    datasets: [{
+                        data: [45.2, 24.1, 19.6, 10.6],
+                        backgroundColor: ['#1F4788', '#5A8ECA', '#9CB8E6', '#BFCFE9'],
+                        borderColor: 'white',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'right' } }
+                }
+            });
+        }
+
+        function updateRegionChart() {
+            const ctx = document.getElementById('chart-region');
+            if (!ctx) return;
+
+            if (charts['region']) charts['region'].destroy();
+
+            charts['region'] = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['아시아', '유럽', '미국', '기타'],
+                    datasets: [
+                        {
+                            label: '2026년',
+                            data: [85.5, 62.3, 38.2, 3.5],
+                            backgroundColor: '#1F4788'
+                        },
+                        {
+                            label: '2025년',
+                            data: [78.2, 55.8, 35.0, 3.0],
+                            backgroundColor: '#CBD5E1'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'top' } }
+                }
+            });
+        }
+
+        // 초기화
+        window.addEventListener('DOMContentLoaded', () => {
+            initializeFilters(1);
+            initializeFilters(2);
+            initializeFilters(3);
+            updateDashboard(1);
+        });
+    </script>
+</body>
+</html>
